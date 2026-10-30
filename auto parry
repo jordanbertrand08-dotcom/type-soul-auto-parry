@@ -1,0 +1,64 @@
+-- Type Soul Auto-Parry Script
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+end)
+
+-- Configuration Settings
+local PARRY_DISTANCE = 14
+local PARRY_KEY = Enum.KeyCode.F
+local COOLDOWN = 0.3
+
+-- Your 2 captured Animation IDs
+local AttackAnimations = {
+    ["rbxassetid://80317364920671"] = true,
+    ["rbxassetid://110857724268575"] = true,
+}
+
+local lastParryTime = 0
+
+local function executeParry()
+    local currentTime = tick()
+    if currentTime - lastParryTime < COOLDOWN then return end
+    lastParryTime = currentTime
+
+    VirtualInputManager:SendKeyEvent(true, PARRY_KEY, false, game)
+    task.wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, PARRY_KEY, false, game)
+end
+
+local function scanForAttacks()
+    if not Character or not Character:FindFirstChild("HumanoidRootPart") then return end
+    local myRoot = Character.HumanoidRootPart
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local enemyChar = player.Character
+            local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
+            local enemyHumanoid = enemyChar:FindFirstChildOfClass("Humanoid")
+
+            if enemyRoot and enemyHumanoid then
+                local distance = (myRoot.Position - enemyRoot.Position).Magnitude
+                if distance <= PARRY_DISTANCE then
+                    local animator = enemyHumanoid:FindFirstChildOfClass("Animator")
+                    if animator then
+                        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Animation and AttackAnimations[track.Animation.AnimationId] then
+                                executeParry()
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(scanForAttacks)
